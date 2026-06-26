@@ -47,21 +47,28 @@ jobs:
 
     - name: Build EXE
       run: |
-        echo "=== 当前目录 ==="
-        pwd
-        echo "=== 工具链检查 ==="
-        which ${{ matrix.cross }}gcc
-        which ${{ matrix.cross }}windres
-        echo "=== 源文件 ==="
-        ls -la src/
-        echo "=== 资源文件 ==="
-        ls -la assets/
-        echo "=== 开始编译 ==="
+        set -x
         make dirs
-        make CROSS=${{ matrix.cross }}- 2>&1 | tee build.log
-        echo "=== 编译日志尾部 ==="
-        tail -30 build.log
+        make CROSS=${{ matrix.cross }-
+        STATUS=$?
+        set +x
+        echo "Make exit status: $STATUS"
+        exit $STATUS
       shell: bash
+      continue-on-error: true
+      id: build
+
+    - name: Show build log on failure
+      if: steps.build.outcome == 'failure'
+      run: |
+        echo "=== Build failed. Checking logs... ==="
+        find . -name "*.log" 2>/dev/null
+        find . -name "build" -type d 2>/dev/null
+        ls -la build/ 2>/dev/null
+        ls -la build/output/ 2>/dev/null
+        echo "=== Re-running make with full output ==="
+        make CROSS=${{ matrix.cross }-
+        echo "=== End ==="
 
     - name: Verify EXE
       run: |
