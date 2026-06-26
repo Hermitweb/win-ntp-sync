@@ -1,0 +1,121 @@
+name: Build WinTimeSync
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
+
+permissions:
+  contents: write  # 创建 Release 时需要
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ubuntu-22.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, x86]
+        include:
+          - arch: x64
+            cross: x86_64-w64-mingw32-
+          - arch: x86
+            cross: i686-w64-mingw32-
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install MinGW-w64
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64-x86-64 gcc-mingw-w64-i686
+      shell: bash
+
+    - name: Install Python and Pillow
+      run: |
+        sudo apt-get install -y python3-pip
+        pip3 install --break-system-packages Pillow
+      shell: bash
+
+    - name: Generate icons
+      run: python3 scripts/generate_icons.py
+      shell: bash
+
+    - name: Build EXE
+      run: |
+        make clean
+        make rebuild CROSS=${{ matrix.cross }}-
+      shell: bash
+
+    - name: Verify EXE
+      run: |
+        file build/output/WinTimeSync.exe
+        x86_64-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>/dev/null | \
+          grep -E "Manifest|Version" | head -3
+      shell: bash
+      continue-on-error: true
+
+    - name: Package release
+      run: |
+        bash scripts/release.sh ${{ matrix.arch }}
+      shell: bash
+
+    - name: Upload EXE artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: WinTimeSync-${{ matrix.arch }}-exe
+        path: build/output/WinTimeSync.exe
+        if-no-files-found: error
+
+    - name: Upload ZIP artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: WinTimeSync-${{ matrix.arch }}-zip
+        path: build/release/*.zip
+        if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-22.04
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: WinTimeSync ${{ github.ref_name }}
+        body: |
+          ## WinTimeSync ${{ github.ref_name }}
+
+          Windows NTP 时间同步工具 - 轻量级托盘后台程序
+
+          ### 安装方式
+          1. 下载对应架构的 ZIP 包
+          2. 解压后双击 `install.bat`（以管理员身份） 或 `WinTimeSync.exe`
+          3. 应用将自动最小化到系统托盘
+
+          ### 文件说明
+          - `WinTimeSync-${{ matrix.arch }}.zip` - 完整发布包（含文档、安装脚本、配置示例）
+          - 单 EXE 用户可只下载 `WinTimeSync-${{ matrix.arch }}.exe`
+
+          ### 系统要求
+          - Windows 7 SP1 或更高
+          - 管理员权限
+          - UDP 123 出站网络
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        files: |
+          artifacts/**/*.exe
+          artifacts/**/*.zip
