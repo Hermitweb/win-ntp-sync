@@ -47,8 +47,8 @@ jobs:
 
     - name: Build EXE
       run: |
-        make clean
-        make rebuild CROSS=${{ matrix.cross }}-
+        make dirs
+        make CROSS=${{ matrix.cross }}-
       shell: bash
 
     - name: Verify EXE
