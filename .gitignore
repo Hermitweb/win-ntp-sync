@@ -1,0 +1,41 @@
+# ============================================================================
+# WinTimeSync .gitignore
+# ============================================================================
+
+# 构建产物
+build/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# MinGW 临时文件
+*.stackdump
+*.dmp
+
+# Python 临时文件
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# 用户特定配置
+*.user
+
+# 临时文件
+*.tmp
+*.bak
+*.orig
