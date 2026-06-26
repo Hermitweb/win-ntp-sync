@@ -6,10 +6,10 @@ on:
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
 
 permissions:
-  contents: write  # 创建 Release 时需要
+  contents: write
 
 jobs:
   build:
@@ -33,7 +33,7 @@ jobs:
     - name: Install MinGW-w64
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-mingw-w64-x86-64 gcc-mingw-w64-i686
+        sudo apt-get install -y gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 make
       shell: bash
 
     - name: Install Python and Pillow
@@ -47,43 +47,38 @@ jobs:
 
     - name: Build EXE
       run: |
-        set -x
+        set -e
         make dirs
-        make CROSS=${{ matrix.cross }-
-        STATUS=$?
-        set +x
-        echo "Make exit status: $STATUS"
-        exit $STATUS
+        make CROSS=${{ matrix.cross }}-
       shell: bash
-      continue-on-error: true
       id: build
+      continue-on-error: true
 
-    - name: Show build log on failure
+    - name: Print build output on failure
       if: steps.build.outcome == 'failure'
       run: |
-        echo "=== Build failed. Checking logs... ==="
-        find . -name "*.log" 2>/dev/null
-        find . -name "build" -type d 2>/dev/null
-        ls -la build/ 2>/dev/null
-        ls -la build/output/ 2>/dev/null
-        echo "=== Re-running make with full output ==="
-        make CROSS=${{ matrix.cross }-
-        echo "=== End ==="
+        echo "=== BUILD FAILED - printing last 50 lines of each .o compile ==="
+        for log in $(find build -name "*.log" 2>/dev/null); do
+          echo "--- $log ---"
+          tail -50 "$log"
+        done
+        echo "=== Re-attempt with verbose output ==="
+        make CROSS=${{ matrix.cross }}-
 
     - name: Verify EXE
+      if: steps.build.outcome == 'success'
       run: |
         file build/output/WinTimeSync.exe
-        x86_64-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>/dev/null | \
-          grep -E "Manifest|Version" | head -3
-      shell: bash
-      continue-on-error: true
+        ls -lh build/output/WinTimeSync.exe
+        x86_64-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>/dev/null | grep -E "Manifest|Version" | head -3
 
     - name: Package release
+      if: steps.build.outcome == 'success'
       run: |
         bash scripts/release.sh ${{ matrix.arch }}
-      shell: bash
 
     - name: Upload EXE artifact
+      if: steps.build.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: WinTimeSync-${{ matrix.arch }}-exe
@@ -91,6 +86,7 @@ jobs:
         if-no-files-found: error
 
     - name: Upload ZIP artifact
+      if: steps.build.outcome == 'success'
       uses: actions/upload-artifact@v4
       with:
         name: WinTimeSync-${{ matrix.arch }}-zip
@@ -122,10 +118,6 @@ jobs:
           1. 下载对应架构的 ZIP 包
           2. 解压后双击 `install.bat`（以管理员身份） 或 `WinTimeSync.exe`
           3. 应用将自动最小化到系统托盘
-
-          ### 文件说明
-          - `WinTimeSync-${{ matrix.arch }}.zip` - 完整发布包（含文档、安装脚本、配置示例）
-          - 单 EXE 用户可只下载 `WinTimeSync-${{ matrix.arch }}.exe`
 
           ### 系统要求
           - Windows 7 SP1 或更高
