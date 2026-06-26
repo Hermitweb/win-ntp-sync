@@ -12,19 +12,9 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build (${{ matrix.arch }})
+  build-x64:
+    name: Build (x64)
     runs-on: ubuntu-22.04
-
-    strategy:
-      fail-fast: false
-      matrix:
-        arch: ${{ github.ref_type == 'tag' && fromJSON('["x64"]') || fromJSON('["x64", "x86"]') }}
-        include:
-          - arch: x64
-            cross: x86_64-w64-mingw32-
-          - arch: x86
-            cross: i686-w64-mingw32-
 
     steps:
     - name: Checkout
@@ -33,7 +23,7 @@ jobs:
     - name: Install MinGW-w64
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-mingw-w64-x86-64 gcc-mingw-w64-i686 make file
+        sudo apt-get install -y gcc-mingw-w64-x86-64 make file zip
       shell: bash
 
     - name: Install Python and Pillow
@@ -47,76 +37,91 @@ jobs:
 
     - name: Build EXE
       run: |
-        {
-          echo "### Build Output ###"
-          echo ""
-          echo "**Working dir:** $(pwd)"
-          echo "**Files:**"
-          ls -la
-          echo ""
-          echo "**Source files:**"
-          ls -la src/ include/ assets/ 2>&1
-          echo ""
-          echo "**Compiler version:**"
-          ${{ matrix.cross }}gcc --version | head -2
-          echo ""
-          echo "**Build attempt:**"
-          make dirs
-          make CROSS=${{ matrix.cross }}-
-          echo ""
-          echo "**Build log complete**"
-        } 2>&1 | tee build.log
-      shell: bash
-      continue-on-error: true
-      id: build
-
-    - name: Print build log to summary
-      if: always()
-      run: |
-        echo "### Build step result: ${{ steps.build.outcome }} ###"
-        echo ""
-        echo "**Build log:**"
-        echo ""
-        cat build.log
-        echo ""
-        echo "**Build artifacts:**"
-        find build -name "*.o" 2>/dev/null
-        ls -la build/output/ 2>/dev/null
+        make dirs
+        make CROSS=x86_64-w64-mingw32-
       shell: bash
 
     - name: Verify EXE
       run: |
         file build/output/WinTimeSync.exe
         ls -lh build/output/WinTimeSync.exe
-        ${{ matrix.cross }}objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3 || true
+        x86_64-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3 || true
         echo "Verify complete"
 
     - name: Package release
       run: |
-        bash scripts/release.sh ${{ matrix.arch }}
+        bash scripts/release.sh x64
 
     - name: Upload EXE artifact
       uses: actions/upload-artifact@v4
       with:
-        name: WinTimeSync-${{ matrix.arch }}-exe
+        name: WinTimeSync-x64-exe
         path: build/output/WinTimeSync.exe
         if-no-files-found: error
 
     - name: Upload ZIP artifact
       uses: actions/upload-artifact@v4
       with:
-        name: WinTimeSync-${{ matrix.arch }}-zip
+        name: WinTimeSync-x64-zip
         path: build/release/*.zip
         if-no-files-found: error
 
+  build-x86:
+    name: Build (x86, optional)
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Install MinGW-w64
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-mingw-w64-i686 make file
+      shell: bash
+
+    - name: Install Python and Pillow
+      run: |
+        sudo apt-get install -y python3-pil python3-pip
+      shell: bash
+
+    - name: Generate icons
+      run: python3 scripts/generate_icons.py
+      shell: bash
+
+    - name: Build EXE
+      run: |
+        make dirs
+        make CROSS=i686-w64-mingw32-
+      shell: bash
+
+    - name: Verify EXE
+      run: |
+        if [ ! -f build/output/WinTimeSync.exe ]; then
+          echo "x86 build did not produce WinTimeSync.exe"
+          exit 1
+        fi
+        file build/output/WinTimeSync.exe
+        ls -lh build/output/WinTimeSync.exe
+        i686-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3 || true
+        echo "Verify complete"
+
+    - name: Upload EXE artifact (unstable, not released)
+      uses: actions/upload-artifact@v4
+      with:
+        name: WinTimeSync-x86-exe-unstable
+        path: build/output/WinTimeSync.exe
+        if-no-files-found: warn
+
   release:
     name: Create GitHub Release
-    needs: build
+    needs: build-x64
     runs-on: ubuntu-22.04
     if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
-    - name: Download all artifacts
+    - name: Download x64 artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
@@ -131,13 +136,13 @@ jobs:
           Windows NTP 时间同步工具 - 轻量级托盘后台程序
 
           ### 安装方式
-          1. 下载对应架构的 ZIP 包
-          2. 解压后双击 `install.bat`（以管理员身份） 或 `WinTimeSync.exe`
+          1. 下载 `WinTimeSync-x64.zip`
+          2. 解压后右键 `install.bat` 选择「以管理员身份运行」，或直接双击 `WinTimeSync.exe`
           3. 应用将自动最小化到系统托盘
 
           ### 系统要求
           - Windows 7 SP1 或更高
-          - 管理员权限
+          - 管理员权限（修改系统时间需要）
           - UDP 123 出站网络
         draft: false
         prerelease: false
