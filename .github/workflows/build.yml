@@ -86,16 +86,10 @@ jobs:
 
     - name: Verify EXE
       run: |
-        set +e
-        echo "=== file output ==="
         file build/output/WinTimeSync.exe
-        FILE_RC=$?
-        echo "file exit code: $FILE_RC"
-        echo "=== ls output ==="
         ls -lh build/output/WinTimeSync.exe
-        echo "=== objdump output ==="
-        ${{ matrix.cross }}objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3
-        echo "=== Done ==="
+        ${{ matrix.cross }}objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3 || true
+        echo "Verify complete"
 
     - name: Package release
       run: |
