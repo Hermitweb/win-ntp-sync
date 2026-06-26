@@ -47,8 +47,20 @@ jobs:
 
     - name: Build EXE
       run: |
+        echo "=== 当前目录 ==="
+        pwd
+        echo "=== 工具链检查 ==="
+        which ${{ matrix.cross }}gcc
+        which ${{ matrix.cross }}windres
+        echo "=== 源文件 ==="
+        ls -la src/
+        echo "=== 资源文件 ==="
+        ls -la assets/
+        echo "=== 开始编译 ==="
         make dirs
-        make CROSS=${{ matrix.cross }}-
+        make CROSS=${{ matrix.cross }}- 2>&1 | tee build.log
+        echo "=== 编译日志尾部 ==="
+        tail -30 build.log
       shell: bash
 
     - name: Verify EXE
