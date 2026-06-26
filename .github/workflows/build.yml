@@ -82,6 +82,14 @@ jobs:
         find build -name "*.o" 2>/dev/null
         ls -la build/output/ 2>/dev/null
 
+    - name: Upload debug log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log-${{ matrix.arch }}
+        path: build.log
+        if-no-files-found: ignore
+
     - name: Verify EXE
       run: |
         file build/output/WinTimeSync.exe
