@@ -47,48 +47,42 @@ jobs:
 
     - name: Build EXE
       run: |
-        echo "=== Files ==="
-        ls -la
-        echo "=== Makefile content ==="
-        cat Makefile
-        echo "=== Source files ==="
-        ls -la src/
-        ls -la include/
-        echo "=== Asset files ==="
-        ls -la assets/
-        echo "=== Tool check ==="
-        which ${{ matrix.cross }}gcc
-        ${{ matrix.cross }}gcc --version
-        echo "=== Build attempt ==="
-        make dirs 2>&1
-        make CROSS=${{ matrix.cross }}- 2>&1 | tee build.log
-        echo "=== Exit code: $? ==="
-        echo "=== Build log tail ==="
-        tail -50 build.log
+        {
+          echo "### Build Output ###"
+          echo ""
+          echo "**Working dir:** $(pwd)"
+          echo "**Files:**"
+          ls -la
+          echo ""
+          echo "**Source files:**"
+          ls -la src/ include/ assets/ 2>&1
+          echo ""
+          echo "**Compiler version:**"
+          ${{ matrix.cross }}gcc --version | head -2
+          echo ""
+          echo "**Build attempt:**"
+          make dirs
+          make CROSS=${{ matrix.cross }}-
+          echo ""
+          echo "**Build log complete**"
+        } 2>&1 | tee build.log
       shell: bash
       continue-on-error: true
       id: build
 
-    - name: Print build log
+    - name: Print build log to summary
       if: always()
       run: |
-        echo "=== BUILD STEP RESULT: ${{ steps.build.outcome }} ==="
-        echo "=== Exit code: ${{ steps.build.conclusion }} ==="
-        if [ -f build.log ]; then
-          echo "=== Full build log ==="
-          cat build.log
-        fi
-        echo "=== Make output check ==="
+        echo "### Build step result: ${{ steps.build.outcome }} ###"
+        echo ""
+        echo "**Build log:**"
+        echo ""
+        cat build.log
+        echo ""
+        echo "**Build artifacts:**"
         find build -name "*.o" 2>/dev/null
         ls -la build/output/ 2>/dev/null
-
-    - name: Upload debug log
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-log-${{ matrix.arch }}
-        path: build.log
-        if-no-files-found: ignore
+      shell: bash
 
     - name: Verify EXE
       run: |
