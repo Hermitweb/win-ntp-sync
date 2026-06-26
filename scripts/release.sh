@@ -4,7 +4,7 @@
 # 构建可发布包，包含 EXE、文档、配置示例
 # ============================================================================
 
-set -e
+set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
