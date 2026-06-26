@@ -88,7 +88,8 @@ jobs:
       run: |
         file build/output/WinTimeSync.exe
         ls -lh build/output/WinTimeSync.exe
-        x86_64-w64-mingw32-objdump -p build/output/WinTimeSync.exe 2>/dev/null | grep -E "Manifest|Version" | head -3
+        ${{ matrix.cross }}objdump -p build/output/WinTimeSync.exe 2>&1 | grep -E "Manifest|Version" | head -3 || true
+        echo "Verify complete"
 
     - name: Package release
       run: |
