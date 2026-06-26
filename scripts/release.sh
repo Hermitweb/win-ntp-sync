@@ -162,7 +162,7 @@ log_info "EXE 文件信息："
 file "$DIST_DIR/$EXE_NAME"
 
 log_info "资源检查："
-x86_64-w64-mingw32-objdump -p "$DIST_DIR/$EXE_NAME" 2>/dev/null | grep -E "Manifest|Version|Icon" | head -3
+${CROSS}objdump -p "$DIST_DIR/$EXE_NAME" 2>/dev/null | grep -E "Manifest|Version" | head -3
 
 # 压缩为 ZIP
 cd "$RELEASE_DIR"
